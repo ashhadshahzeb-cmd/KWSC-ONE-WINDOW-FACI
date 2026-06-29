@@ -62,7 +62,7 @@ export default function AdminConfig() {
   const [authPassword, setAuthPassword] = useState('');
   const [showAuthPass, setShowAuthPass] = useState(false);
 
-  const { mainCategories, subCategories, sections, isMaintenanceMode, isLoading, refetch } = useAppConfig();
+  const { mainCategories, subCategories, sections, isMaintenanceMode, maintenanceEndTime, isLoading, refetch } = useAppConfig();
 
   // Local state (mirrored from hook so we can do optimistic updates)
   const [localMain, setLocalMain] = useState<AppConfigItem[]>([]);
@@ -87,6 +87,19 @@ export default function AdminConfig() {
 
   // Sub-category parent filter
   const [selectedParent, setSelectedParent] = useState<string>('all');
+
+  // Local state for timer
+  const [localMaintenanceEndTime, setLocalMaintenanceEndTime] = useState<string>('');
+
+  useEffect(() => {
+    if (maintenanceEndTime) {
+      // datetime-local input expects YYYY-MM-DDThh:mm
+      const formatted = new Date(maintenanceEndTime).toISOString().slice(0, 16);
+      setLocalMaintenanceEndTime(formatted);
+    } else {
+      setLocalMaintenanceEndTime('');
+    }
+  }, [maintenanceEndTime]);
 
   // ── Auth gate ──────────────────────────────────────────────────────────────
   const handleAuthSubmit = (e: React.FormEvent) => {
@@ -281,18 +294,51 @@ export default function AdminConfig() {
             sort_order: 0
           });
         if (error) throw error;
+        toast.success('Maintenance Mode Enabled');
       } else {
         const { error } = await supabase
           .from('app_config' as any)
           .delete()
           .eq('config_type', 'system_setting')
-          .eq('config_key', 'maintenance_mode');
+          .in('config_key', ['maintenance_mode', 'maintenance_end_time']);
         if (error) throw error;
+        setLocalMaintenanceEndTime('');
+        toast.success('Maintenance Mode Disabled');
       }
-      toast.success(checked ? 'Maintenance Mode Enabled' : 'Maintenance Mode Disabled');
       refetch();
     } catch (err: any) {
       toast.error(err.message || 'Failed to toggle maintenance mode');
+    }
+  };
+
+  const handleSaveTimer = async () => {
+    try {
+      if (!localMaintenanceEndTime) {
+        // Delete timer if cleared
+        const { error } = await supabase
+          .from('app_config' as any)
+          .delete()
+          .eq('config_type', 'system_setting')
+          .eq('config_key', 'maintenance_end_time');
+        if (error) throw error;
+        toast.success('Timer cleared');
+      } else {
+        const isoDate = new Date(localMaintenanceEndTime).toISOString();
+        const { error } = await supabase
+          .from('app_config' as any)
+          .upsert({
+            config_type: 'system_setting',
+            config_key: 'maintenance_end_time',
+            config_label: isoDate,
+            is_active: true,
+            sort_order: 0
+          }, { onConflict: 'config_type, config_key, parent_key' });
+        if (error) throw error;
+        toast.success('Timer set successfully');
+      }
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to set timer');
     }
   };
 
@@ -341,19 +387,44 @@ export default function AdminConfig() {
       </div>
 
       {/* Global Settings */}
-      <div className="flex items-center justify-between p-4 rounded-2xl bg-orange-500/5 border border-orange-500/20">
-        <div className="flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5 text-orange-400" />
-          <div>
-            <p className="font-bold text-orange-200 mb-0.5">Maintenance Mode</p>
-            <p className="text-xs text-orange-300/70">Enable to temporarily block access to the application for non-admin users.</p>
+      <div className="flex flex-col p-4 rounded-2xl bg-orange-500/5 border border-orange-500/20 gap-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-orange-400" />
+            <div>
+              <p className="font-bold text-orange-200 mb-0.5">Maintenance Mode</p>
+              <p className="text-xs text-orange-300/70">Enable to temporarily block access to the application for non-admin users.</p>
+            </div>
           </div>
+          <Switch
+            checked={isMaintenanceMode}
+            onCheckedChange={handleToggleMaintenance}
+            className="data-[state=checked]:bg-orange-500"
+          />
         </div>
-        <Switch
-          checked={isMaintenanceMode}
-          onCheckedChange={handleToggleMaintenance}
-          className="data-[state=checked]:bg-orange-500"
-        />
+        {isMaintenanceMode && (
+          <div className="flex flex-col sm:flex-row gap-3 pt-3 mt-1 border-t border-orange-500/10 items-start sm:items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-orange-200 mb-1">Auto-Resume Timer (Optional)</p>
+              <p className="text-xs text-orange-300/60">Set a time for maintenance to automatically end.</p>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Input
+                type="datetime-local"
+                value={localMaintenanceEndTime}
+                onChange={e => setLocalMaintenanceEndTime(e.target.value)}
+                className="bg-white/5 border-orange-500/30 text-white w-full sm:w-[200px]"
+              />
+              <Button
+                size="sm"
+                onClick={handleSaveTimer}
+                className="bg-orange-600 hover:bg-orange-500 text-white shrink-0"
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}

@@ -16,13 +16,14 @@ interface AppConfigState {
   subCategories: AppConfigItem[];
   sections: AppConfigItem[];
   isMaintenanceMode: boolean;
+  maintenanceEndTime: string | null;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
 }
 
 // In-memory cache so every component doesn't re-fetch
-let cachedConfig: { mainCategories: AppConfigItem[]; subCategories: AppConfigItem[]; sections: AppConfigItem[]; isMaintenanceMode: boolean } | null = null;
+let cachedConfig: { mainCategories: AppConfigItem[]; subCategories: AppConfigItem[]; sections: AppConfigItem[]; isMaintenanceMode: boolean; maintenanceEndTime: string | null } | null = null;
 let cachePromise: Promise<void> | null = null;
 
 export function useAppConfig(): AppConfigState {
@@ -30,6 +31,7 @@ export function useAppConfig(): AppConfigState {
   const [subCategories, setSubCategories]   = useState<AppConfigItem[]>([]);
   const [sections, setSections]             = useState<AppConfigItem[]>([]);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(false);
+  const [maintenanceEndTime, setMaintenanceEndTime] = useState<string | null>(null);
   const [isLoading, setIsLoading]           = useState(true);
   const [error, setError]                   = useState<string | null>(null);
 
@@ -41,6 +43,7 @@ export function useAppConfig(): AppConfigState {
       setSubCategories(cachedConfig.subCategories);
       setSections(cachedConfig.sections);
       setIsMaintenanceMode(cachedConfig.isMaintenanceMode);
+      setMaintenanceEndTime(cachedConfig.maintenanceEndTime);
       setIsLoading(false);
       return;
     }
@@ -52,6 +55,7 @@ export function useAppConfig(): AppConfigState {
         setSubCategories(cachedConfig.subCategories);
         setSections(cachedConfig.sections);
         setIsMaintenanceMode(cachedConfig.isMaintenanceMode);
+        setMaintenanceEndTime(cachedConfig.maintenanceEndTime);
         setIsLoading(false);
       }
       return;
@@ -72,15 +76,26 @@ export function useAppConfig(): AppConfigState {
         const mc = all.filter(r => r.config_type === 'main_category');
         const sc = all.filter(r => r.config_type === 'sub_category');
         const se = all.filter(r => r.config_type === 'section');
-        const ss = all.filter(r => r.config_type === 'system_setting' && r.config_key === 'maintenance_mode');
+        const ssMaintenance = all.find(r => r.config_type === 'system_setting' && r.config_key === 'maintenance_mode');
+        const ssTime = all.find(r => r.config_type === 'system_setting' && r.config_key === 'maintenance_end_time');
 
-        const maintenance = ss.length > 0;
+        let maintenance = !!ssMaintenance;
+        let endTime = ssTime ? ssTime.config_label : null;
 
-        cachedConfig = { mainCategories: mc, subCategories: sc, sections: se, isMaintenanceMode: maintenance };
+        if (maintenance && endTime) {
+          const endObj = new Date(endTime).getTime();
+          const nowObj = new Date().getTime();
+          if (nowObj >= endObj) {
+             maintenance = false; // Auto-disable if time has passed
+          }
+        }
+
+        cachedConfig = { mainCategories: mc, subCategories: sc, sections: se, isMaintenanceMode: maintenance, maintenanceEndTime: endTime };
         setMainCategories(mc);
         setSubCategories(sc);
         setSections(se);
         setIsMaintenanceMode(maintenance);
+        setMaintenanceEndTime(endTime);
         setError(null);
       } catch (err: any) {
         console.error('useAppConfig error:', err);
@@ -90,6 +105,7 @@ export function useAppConfig(): AppConfigState {
         setSubCategories(FALLBACK_SUB_CATEGORIES);
         setSections(FALLBACK_SECTIONS);
         setIsMaintenanceMode(false);
+        setMaintenanceEndTime(null);
       } finally {
         setIsLoading(false);
         cachePromise = null;
@@ -107,7 +123,7 @@ export function useAppConfig(): AppConfigState {
     fetchConfig(true);
   }, [fetchConfig]);
 
-  return { mainCategories, subCategories, sections, isMaintenanceMode, isLoading, error, refetch };
+  return { mainCategories, subCategories, sections, isMaintenanceMode, maintenanceEndTime, isLoading, error, refetch };
 }
 
 /**
