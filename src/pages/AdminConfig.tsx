@@ -62,7 +62,7 @@ export default function AdminConfig() {
   const [authPassword, setAuthPassword] = useState('');
   const [showAuthPass, setShowAuthPass] = useState(false);
 
-  const { mainCategories, subCategories, sections, isLoading, refetch } = useAppConfig();
+  const { mainCategories, subCategories, sections, isMaintenanceMode, isLoading, refetch } = useAppConfig();
 
   // Local state (mirrored from hook so we can do optimistic updates)
   const [localMain, setLocalMain] = useState<AppConfigItem[]>([]);
@@ -268,6 +268,34 @@ export default function AdminConfig() {
     }
   };
 
+  const handleToggleMaintenance = async (checked: boolean) => {
+    try {
+      if (checked) {
+        const { error } = await supabase
+          .from('app_config' as any)
+          .insert({
+            config_type: 'system_setting',
+            config_key: 'maintenance_mode',
+            config_label: 'Maintenance Mode',
+            is_active: true,
+            sort_order: 0
+          });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('app_config' as any)
+          .delete()
+          .eq('config_type', 'system_setting')
+          .eq('config_key', 'maintenance_mode');
+        if (error) throw error;
+      }
+      toast.success(checked ? 'Maintenance Mode Enabled' : 'Maintenance Mode Disabled');
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to toggle maintenance mode');
+    }
+  };
+
   // ── Filtered sub-categories ────────────────────────────────────────────────
   const visibleSub = selectedParent === 'all'
     ? localSub
@@ -310,6 +338,22 @@ export default function AdminConfig() {
             Main Category delete karne se uski tamam Sub-Categories bhi hata di jaati hain.
           </p>
         </div>
+      </div>
+
+      {/* Global Settings */}
+      <div className="flex items-center justify-between p-4 rounded-2xl bg-orange-500/5 border border-orange-500/20">
+        <div className="flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-orange-400" />
+          <div>
+            <p className="font-bold text-orange-200 mb-0.5">Maintenance Mode</p>
+            <p className="text-xs text-orange-300/70">Enable to temporarily block access to the application for non-admin users.</p>
+          </div>
+        </div>
+        <Switch
+          checked={isMaintenanceMode}
+          onCheckedChange={handleToggleMaintenance}
+          className="data-[state=checked]:bg-orange-500"
+        />
       </div>
 
       {/* Tabs */}

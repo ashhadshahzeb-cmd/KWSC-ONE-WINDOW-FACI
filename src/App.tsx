@@ -46,8 +46,7 @@ import AdminConfig from "./pages/AdminConfig";
 import ActivityLog from "./pages/ActivityLog";
 import FileAnalytics from "./pages/FileAnalytics";
 import Maintenance from "./pages/Maintenance";
-
-const isMaintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === 'true';
+import { useAppConfig } from "@/hooks/useAppConfig";
 
 const queryClient = new QueryClient();
 
@@ -67,29 +66,29 @@ const DashboardRedirect = () => {
   return <Dashboard />;
 };
 
-const App = () => {
-  if (isMaintenanceMode) {
-    return <Maintenance />;
+const AppRoutes = () => {
+  const { isMaintenanceMode, isLoading } = useAppConfig();
+  const { isAdmin } = useAuth();
+
+  if (isMaintenanceMode && !isAdmin) {
+    return (
+      <Routes>
+        <Route path="/login" element={<AuthPage />} />
+        <Route path="*" element={<Maintenance />} />
+      </Routes>
+    );
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <ThemeProvider>
-        <Toaster />
-        <Sonner />
-        <AuthProvider>
-          <VoiceProvider>
-            <BrowserRouter>
+    <Routes>
+      <Route path="/login" element={<AuthPage />} />
+      <Route path="/public-track/:diaryNo/:receivingNo" element={<PublicTracking />} />
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <Layout>
               <Routes>
-                <Route path="/login" element={<AuthPage />} />
-                <Route path="/public-track/:diaryNo/:receivingNo" element={<PublicTracking />} />
-                <Route
-                  path="/*"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <Routes>
                           <Route path="/" element={
                             <ProtectedRoute>
                               <DashboardRedirect />
@@ -146,12 +145,26 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
-              </Routes>
-            </BrowserRouter>
-          </VoiceProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </TooltipProvider>
+    </Routes>
+  );
+};
+
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <ThemeProvider>
+          <Toaster />
+          <Sonner />
+          <AuthProvider>
+            <VoiceProvider>
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </VoiceProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 };

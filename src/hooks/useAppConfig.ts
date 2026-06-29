@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface AppConfigItem {
   id: string;
-  config_type: 'main_category' | 'sub_category' | 'section';
+  config_type: 'main_category' | 'sub_category' | 'section' | 'system_setting';
   config_key: string;
   config_label: string;
   parent_key: string | null;
@@ -15,19 +15,21 @@ interface AppConfigState {
   mainCategories: AppConfigItem[];
   subCategories: AppConfigItem[];
   sections: AppConfigItem[];
+  isMaintenanceMode: boolean;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
 }
 
 // In-memory cache so every component doesn't re-fetch
-let cachedConfig: { mainCategories: AppConfigItem[]; subCategories: AppConfigItem[]; sections: AppConfigItem[] } | null = null;
+let cachedConfig: { mainCategories: AppConfigItem[]; subCategories: AppConfigItem[]; sections: AppConfigItem[]; isMaintenanceMode: boolean } | null = null;
 let cachePromise: Promise<void> | null = null;
 
 export function useAppConfig(): AppConfigState {
   const [mainCategories, setMainCategories] = useState<AppConfigItem[]>([]);
   const [subCategories, setSubCategories]   = useState<AppConfigItem[]>([]);
   const [sections, setSections]             = useState<AppConfigItem[]>([]);
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(false);
   const [isLoading, setIsLoading]           = useState(true);
   const [error, setError]                   = useState<string | null>(null);
 
@@ -38,6 +40,7 @@ export function useAppConfig(): AppConfigState {
       setMainCategories(cachedConfig.mainCategories);
       setSubCategories(cachedConfig.subCategories);
       setSections(cachedConfig.sections);
+      setIsMaintenanceMode(cachedConfig.isMaintenanceMode);
       setIsLoading(false);
       return;
     }
@@ -48,6 +51,7 @@ export function useAppConfig(): AppConfigState {
         setMainCategories(cachedConfig.mainCategories);
         setSubCategories(cachedConfig.subCategories);
         setSections(cachedConfig.sections);
+        setIsMaintenanceMode(cachedConfig.isMaintenanceMode);
         setIsLoading(false);
       }
       return;
@@ -68,11 +72,15 @@ export function useAppConfig(): AppConfigState {
         const mc = all.filter(r => r.config_type === 'main_category');
         const sc = all.filter(r => r.config_type === 'sub_category');
         const se = all.filter(r => r.config_type === 'section');
+        const ss = all.filter(r => r.config_type === 'system_setting' && r.config_key === 'maintenance_mode');
 
-        cachedConfig = { mainCategories: mc, subCategories: sc, sections: se };
+        const maintenance = ss.length > 0;
+
+        cachedConfig = { mainCategories: mc, subCategories: sc, sections: se, isMaintenanceMode: maintenance };
         setMainCategories(mc);
         setSubCategories(sc);
         setSections(se);
+        setIsMaintenanceMode(maintenance);
         setError(null);
       } catch (err: any) {
         console.error('useAppConfig error:', err);
@@ -81,6 +89,7 @@ export function useAppConfig(): AppConfigState {
         setMainCategories(FALLBACK_MAIN_CATEGORIES);
         setSubCategories(FALLBACK_SUB_CATEGORIES);
         setSections(FALLBACK_SECTIONS);
+        setIsMaintenanceMode(false);
       } finally {
         setIsLoading(false);
         cachePromise = null;
@@ -98,7 +107,7 @@ export function useAppConfig(): AppConfigState {
     fetchConfig(true);
   }, [fetchConfig]);
 
-  return { mainCategories, subCategories, sections, isLoading, error, refetch };
+  return { mainCategories, subCategories, sections, isMaintenanceMode, isLoading, error, refetch };
 }
 
 /**
