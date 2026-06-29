@@ -94,10 +94,11 @@ export default function AdminConfig() {
   // Local state for timer
   const [localMaintenanceEndTime, setLocalMaintenanceEndTime] = useState<string>('');
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedHour, setSelectedHour] = useState('12');
   const [selectedMinute, setSelectedMinute] = useState('00');
-  const [selectedAmPm, setSelectedAmPm] = useState<'AM' | 'PM'>('AM');
+  const [selectedAmPm, setSelectedAmPm] = useState<'AM' | 'PM'>('PM');
+  const [timerReady, setTimerReady] = useState(false);
 
   // Sync from hook value on load
   useEffect(() => {
@@ -110,25 +111,18 @@ export default function AdminConfig() {
       setSelectedHour(String(h12).padStart(2, '0'));
       setSelectedMinute(String(d.getMinutes()).padStart(2, '0'));
       setSelectedAmPm(ampm);
-      const formatted = d.toISOString().slice(0, 16);
-      setLocalMaintenanceEndTime(formatted);
-    } else {
-      setSelectedDate(undefined);
-      setSelectedHour('12');
-      setSelectedMinute('00');
-      setSelectedAmPm('AM');
-      setLocalMaintenanceEndTime('');
+      setLocalMaintenanceEndTime(d.toISOString());
+      setTimerReady(true);
     }
   }, [maintenanceEndTime]);
 
   // Helper: combine selected date + 12h hour + minute + ampm → full UTC ISO string
-  const buildIsoFromParts = (date: Date | undefined, hour: string, minute: string, ampm: 'AM' | 'PM') => {
-    if (!date) return '';
+  const buildIsoFromParts = (date: Date, hour: string, minute: string, ampm: 'AM' | 'PM') => {
     const d = new Date(date);
     let h = parseInt(hour, 10) % 12;
     if (ampm === 'PM') h += 12;
     d.setHours(h, parseInt(minute, 10), 0, 0);
-    return d.toISOString(); // ✅ full UTC ISO with Z — no double-conversion
+    return d.toISOString();
   };
 
   // ── Auth gate ──────────────────────────────────────────────────────────────
@@ -448,14 +442,8 @@ export default function AdminConfig() {
                     className="bg-white/5 border-orange-500/30 text-white w-full sm:w-[210px] justify-start gap-2 font-normal"
                   >
                     <CalendarIcon className="w-4 h-4 text-orange-400 shrink-0" />
-                    {localMaintenanceEndTime
-                      ? (() => {
-                          const d = new Date(localMaintenanceEndTime);
-                          const h24 = d.getHours();
-                          const ampm = h24 >= 12 ? 'PM' : 'AM';
-                          const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-                          return `${d.toLocaleDateString()} ${String(h12).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} ${ampm}`;
-                        })()
+                    {timerReady
+                      ? `${selectedDate.toLocaleDateString()} ${selectedHour}:${selectedMinute} ${selectedAmPm}`
                       : <span className="text-gray-400">Pick date & time...</span>
                     }
                   </Button>
@@ -537,11 +525,9 @@ export default function AdminConfig() {
                       <Button
                         size="sm"
                         onClick={() => {
-                          // Ensure we build the final ISO before closing
-                          if (selectedDate) {
-                            const iso = buildIsoFromParts(selectedDate, selectedHour, selectedMinute, selectedAmPm);
-                            setLocalMaintenanceEndTime(iso);
-                          }
+                          const iso = buildIsoFromParts(selectedDate, selectedHour, selectedMinute, selectedAmPm);
+                          setLocalMaintenanceEndTime(iso);
+                          setTimerReady(true);
                           setCalendarOpen(false);
                         }}
                         className="ml-auto bg-orange-600 hover:bg-orange-500 text-white self-center"
