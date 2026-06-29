@@ -448,8 +448,14 @@ export default function AdminConfig() {
                     className="bg-white/5 border-orange-500/30 text-white w-full sm:w-[210px] justify-start gap-2 font-normal"
                   >
                     <CalendarIcon className="w-4 h-4 text-orange-400 shrink-0" />
-                    {selectedDate
-                      ? `${selectedDate.toLocaleDateString()} ${selectedHour}:${selectedMinute} ${selectedAmPm}`
+                    {localMaintenanceEndTime
+                      ? (() => {
+                          const d = new Date(localMaintenanceEndTime);
+                          const h24 = d.getHours();
+                          const ampm = h24 >= 12 ? 'PM' : 'AM';
+                          const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+                          return `${d.toLocaleDateString()} ${String(h12).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} ${ampm}`;
+                        })()
                       : <span className="text-gray-400">Pick date & time...</span>
                     }
                   </Button>
@@ -459,8 +465,10 @@ export default function AdminConfig() {
                     mode="single"
                     selected={selectedDate}
                     onSelect={(date) => {
+                      if (!date) return; // prevent deselection
                       setSelectedDate(date);
-                      setLocalMaintenanceEndTime(buildIsoFromParts(date, selectedHour, selectedMinute, selectedAmPm));
+                      const iso = buildIsoFromParts(date, selectedHour, selectedMinute, selectedAmPm);
+                      setLocalMaintenanceEndTime(iso);
                     }}
                     disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
                     initialFocus
@@ -528,7 +536,14 @@ export default function AdminConfig() {
                       </div>
                       <Button
                         size="sm"
-                        onClick={() => setCalendarOpen(false)}
+                        onClick={() => {
+                          // Ensure we build the final ISO before closing
+                          if (selectedDate) {
+                            const iso = buildIsoFromParts(selectedDate, selectedHour, selectedMinute, selectedAmPm);
+                            setLocalMaintenanceEndTime(iso);
+                          }
+                          setCalendarOpen(false);
+                        }}
                         className="ml-auto bg-orange-600 hover:bg-orange-500 text-white self-center"
                       >
                         Done
