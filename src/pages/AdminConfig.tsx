@@ -121,16 +121,14 @@ export default function AdminConfig() {
     }
   }, [maintenanceEndTime]);
 
-  // Helper: combine selected date + 12h hour + minute + ampm into ISO string
+  // Helper: combine selected date + 12h hour + minute + ampm → full UTC ISO string
   const buildIsoFromParts = (date: Date | undefined, hour: string, minute: string, ampm: 'AM' | 'PM') => {
     if (!date) return '';
     const d = new Date(date);
     let h = parseInt(hour, 10) % 12;
     if (ampm === 'PM') h += 12;
-    d.setHours(h);
-    d.setMinutes(parseInt(minute, 10));
-    d.setSeconds(0);
-    return d.toISOString().slice(0, 16);
+    d.setHours(h, parseInt(minute, 10), 0, 0);
+    return d.toISOString(); // ✅ full UTC ISO with Z — no double-conversion
   };
 
   // ── Auth gate ──────────────────────────────────────────────────────────────
@@ -355,7 +353,7 @@ export default function AdminConfig() {
         if (error) throw error;
         toast.success('Timer cleared');
       } else {
-        const isoDate = new Date(localMaintenanceEndTime).toISOString();
+        const isoDate = localMaintenanceEndTime; // ✅ already a proper UTC ISO string, no re-conversion needed
         const { error } = await supabase
           .from('app_config' as any)
           .upsert({
@@ -467,61 +465,74 @@ export default function AdminConfig() {
                     initialFocus
                     className="text-white"
                   />
-                  {/* Time selector */}
-                  <div className="flex items-center gap-2 px-4 pb-4 pt-2 border-t border-orange-500/20">
-                    <span className="text-xs text-orange-300 mr-1">Time:</span>
-                    <Input
-                      type="number"
-                      min={1} max={12}
-                      value={selectedHour}
-                      onChange={e => {
-                        const v = String(Math.min(12, Math.max(1, parseInt(e.target.value) || 1))).padStart(2, '0');
-                        setSelectedHour(v);
-                        setLocalMaintenanceEndTime(buildIsoFromParts(selectedDate, v, selectedMinute, selectedAmPm));
-                      }}
-                      className="w-12 text-center bg-white/5 border-orange-500/30 text-white"
-                      placeholder="HH"
-                    />
-                    <span className="text-orange-400 font-bold">:</span>
-                    <Input
-                      type="number"
-                      min={0} max={59}
-                      value={selectedMinute}
-                      onChange={e => {
-                        const v = String(Math.min(59, Math.max(0, parseInt(e.target.value) || 0))).padStart(2, '0');
-                        setSelectedMinute(v);
-                        setLocalMaintenanceEndTime(buildIsoFromParts(selectedDate, selectedHour, v, selectedAmPm));
-                      }}
-                      className="w-12 text-center bg-white/5 border-orange-500/30 text-white"
-                      placeholder="MM"
-                    />
-                    {/* AM / PM Toggle */}
-                    <div className="flex rounded-md overflow-hidden border border-orange-500/30">
-                      {(['AM', 'PM'] as const).map(period => (
-                        <button
-                          key={period}
-                          type="button"
-                          onClick={() => {
-                            setSelectedAmPm(period);
-                            setLocalMaintenanceEndTime(buildIsoFromParts(selectedDate, selectedHour, selectedMinute, period));
-                          }}
-                          className={`px-2 py-1 text-xs font-semibold transition-colors ${
-                            selectedAmPm === period
-                              ? 'bg-orange-500 text-white'
-                              : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                          }`}
-                        >
-                          {period}
-                        </button>
-                      ))}
+                  {/* Time & AM/PM selector */}
+                  <div className="px-4 pb-4 pt-3 border-t border-orange-500/20">
+                    <p className="text-xs text-orange-300/70 mb-2 font-medium uppercase tracking-wider">Set Time</p>
+                    <div className="flex items-center gap-2">
+                      {/* Hour */}
+                      <div className="flex flex-col items-center">
+                        <button type="button" onClick={() => {
+                          const next = String((parseInt(selectedHour) % 12) + 1).padStart(2, '0');
+                          setSelectedHour(next);
+                          setLocalMaintenanceEndTime(buildIsoFromParts(selectedDate, next, selectedMinute, selectedAmPm));
+                        }} className="text-orange-400 hover:text-orange-300 text-lg leading-none pb-1">▲</button>
+                        <div className="w-12 h-10 bg-white/5 border border-orange-500/30 rounded-lg flex items-center justify-center text-white font-bold text-lg tabular-nums">
+                          {selectedHour}
+                        </div>
+                        <button type="button" onClick={() => {
+                          const cur = parseInt(selectedHour);
+                          const next = String(cur <= 1 ? 12 : cur - 1).padStart(2, '0');
+                          setSelectedHour(next);
+                          setLocalMaintenanceEndTime(buildIsoFromParts(selectedDate, next, selectedMinute, selectedAmPm));
+                        }} className="text-orange-400 hover:text-orange-300 text-lg leading-none pt-1">▼</button>
+                      </div>
+                      <span className="text-orange-400 font-black text-2xl mb-0">:</span>
+                      {/* Minute */}
+                      <div className="flex flex-col items-center">
+                        <button type="button" onClick={() => {
+                          const cur = parseInt(selectedMinute);
+                          const next = String((cur + 1) % 60).padStart(2, '0');
+                          setSelectedMinute(next);
+                          setLocalMaintenanceEndTime(buildIsoFromParts(selectedDate, selectedHour, next, selectedAmPm));
+                        }} className="text-orange-400 hover:text-orange-300 text-lg leading-none pb-1">▲</button>
+                        <div className="w-12 h-10 bg-white/5 border border-orange-500/30 rounded-lg flex items-center justify-center text-white font-bold text-lg tabular-nums">
+                          {selectedMinute}
+                        </div>
+                        <button type="button" onClick={() => {
+                          const cur = parseInt(selectedMinute);
+                          const next = String(cur <= 0 ? 59 : cur - 1).padStart(2, '0');
+                          setSelectedMinute(next);
+                          setLocalMaintenanceEndTime(buildIsoFromParts(selectedDate, selectedHour, next, selectedAmPm));
+                        }} className="text-orange-400 hover:text-orange-300 text-lg leading-none pt-1">▼</button>
+                      </div>
+                      {/* AM/PM */}
+                      <div className="flex flex-col gap-1 ml-1">
+                        {(['AM', 'PM'] as const).map(period => (
+                          <button
+                            key={period}
+                            type="button"
+                            onClick={() => {
+                              setSelectedAmPm(period);
+                              setLocalMaintenanceEndTime(buildIsoFromParts(selectedDate, selectedHour, selectedMinute, period));
+                            }}
+                            className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                              selectedAmPm === period
+                                ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30'
+                                : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                            }`}
+                          >
+                            {period}
+                          </button>
+                        ))}
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => setCalendarOpen(false)}
+                        className="ml-auto bg-orange-600 hover:bg-orange-500 text-white self-center"
+                      >
+                        Done
+                      </Button>
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() => setCalendarOpen(false)}
-                      className="ml-auto bg-orange-600 hover:bg-orange-500 text-white"
-                    >
-                      Done
-                    </Button>
                   </div>
                 </PopoverContent>
               </Popover>
