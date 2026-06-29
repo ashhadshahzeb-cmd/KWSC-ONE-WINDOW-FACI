@@ -97,29 +97,37 @@ export default function AdminConfig() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedHour, setSelectedHour] = useState('12');
   const [selectedMinute, setSelectedMinute] = useState('00');
+  const [selectedAmPm, setSelectedAmPm] = useState<'AM' | 'PM'>('AM');
 
   // Sync from hook value on load
   useEffect(() => {
     if (maintenanceEndTime) {
       const d = new Date(maintenanceEndTime);
       setSelectedDate(d);
-      setSelectedHour(String(d.getHours()).padStart(2, '0'));
+      const h24 = d.getHours();
+      const ampm = h24 >= 12 ? 'PM' : 'AM';
+      const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+      setSelectedHour(String(h12).padStart(2, '0'));
       setSelectedMinute(String(d.getMinutes()).padStart(2, '0'));
+      setSelectedAmPm(ampm);
       const formatted = d.toISOString().slice(0, 16);
       setLocalMaintenanceEndTime(formatted);
     } else {
       setSelectedDate(undefined);
       setSelectedHour('12');
       setSelectedMinute('00');
+      setSelectedAmPm('AM');
       setLocalMaintenanceEndTime('');
     }
   }, [maintenanceEndTime]);
 
-  // Helper: combine selected date + hour + minute into ISO string
-  const buildIsoFromParts = (date: Date | undefined, hour: string, minute: string) => {
+  // Helper: combine selected date + 12h hour + minute + ampm into ISO string
+  const buildIsoFromParts = (date: Date | undefined, hour: string, minute: string, ampm: 'AM' | 'PM') => {
     if (!date) return '';
     const d = new Date(date);
-    d.setHours(parseInt(hour, 10));
+    let h = parseInt(hour, 10) % 12;
+    if (ampm === 'PM') h += 12;
+    d.setHours(h);
     d.setMinutes(parseInt(minute, 10));
     d.setSeconds(0);
     return d.toISOString().slice(0, 16);
@@ -442,7 +450,7 @@ export default function AdminConfig() {
                   >
                     <CalendarIcon className="w-4 h-4 text-orange-400 shrink-0" />
                     {selectedDate
-                      ? `${selectedDate.toLocaleDateString()} ${selectedHour}:${selectedMinute}`
+                      ? `${selectedDate.toLocaleDateString()} ${selectedHour}:${selectedMinute} ${selectedAmPm}`
                       : <span className="text-gray-400">Pick date & time...</span>
                     }
                   </Button>
@@ -453,7 +461,7 @@ export default function AdminConfig() {
                     selected={selectedDate}
                     onSelect={(date) => {
                       setSelectedDate(date);
-                      setLocalMaintenanceEndTime(buildIsoFromParts(date, selectedHour, selectedMinute));
+                      setLocalMaintenanceEndTime(buildIsoFromParts(date, selectedHour, selectedMinute, selectedAmPm));
                     }}
                     disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
                     initialFocus
@@ -464,14 +472,14 @@ export default function AdminConfig() {
                     <span className="text-xs text-orange-300 mr-1">Time:</span>
                     <Input
                       type="number"
-                      min={0} max={23}
+                      min={1} max={12}
                       value={selectedHour}
                       onChange={e => {
-                        const v = e.target.value.padStart(2, '0');
+                        const v = String(Math.min(12, Math.max(1, parseInt(e.target.value) || 1))).padStart(2, '0');
                         setSelectedHour(v);
-                        setLocalMaintenanceEndTime(buildIsoFromParts(selectedDate, v, selectedMinute));
+                        setLocalMaintenanceEndTime(buildIsoFromParts(selectedDate, v, selectedMinute, selectedAmPm));
                       }}
-                      className="w-14 text-center bg-white/5 border-orange-500/30 text-white"
+                      className="w-12 text-center bg-white/5 border-orange-500/30 text-white"
                       placeholder="HH"
                     />
                     <span className="text-orange-400 font-bold">:</span>
@@ -480,13 +488,33 @@ export default function AdminConfig() {
                       min={0} max={59}
                       value={selectedMinute}
                       onChange={e => {
-                        const v = e.target.value.padStart(2, '0');
+                        const v = String(Math.min(59, Math.max(0, parseInt(e.target.value) || 0))).padStart(2, '0');
                         setSelectedMinute(v);
-                        setLocalMaintenanceEndTime(buildIsoFromParts(selectedDate, selectedHour, v));
+                        setLocalMaintenanceEndTime(buildIsoFromParts(selectedDate, selectedHour, v, selectedAmPm));
                       }}
-                      className="w-14 text-center bg-white/5 border-orange-500/30 text-white"
+                      className="w-12 text-center bg-white/5 border-orange-500/30 text-white"
                       placeholder="MM"
                     />
+                    {/* AM / PM Toggle */}
+                    <div className="flex rounded-md overflow-hidden border border-orange-500/30">
+                      {(['AM', 'PM'] as const).map(period => (
+                        <button
+                          key={period}
+                          type="button"
+                          onClick={() => {
+                            setSelectedAmPm(period);
+                            setLocalMaintenanceEndTime(buildIsoFromParts(selectedDate, selectedHour, selectedMinute, period));
+                          }}
+                          className={`px-2 py-1 text-xs font-semibold transition-colors ${
+                            selectedAmPm === period
+                              ? 'bg-orange-500 text-white'
+                              : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                          }`}
+                        >
+                          {period}
+                        </button>
+                      ))}
+                    </div>
                     <Button
                       size="sm"
                       onClick={() => setCalendarOpen(false)}
