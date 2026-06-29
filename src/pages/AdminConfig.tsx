@@ -413,15 +413,6 @@ export default function AdminConfig() {
                 type="datetime-local"
                 value={localMaintenanceEndTime}
                 onChange={e => setLocalMaintenanceEndTime(e.target.value)}
-                onClick={e => {
-                  try {
-                    if ('showPicker' in e.target) {
-                      (e.target as HTMLInputElement).showPicker();
-                    }
-                  } catch (err) {
-                    // Ignore, some browsers might throw if not triggered by explicit user interaction
-                  }
-                }}
                 className="bg-white/5 border-orange-500/30 text-white w-full sm:w-[200px]"
               />
               <Button
