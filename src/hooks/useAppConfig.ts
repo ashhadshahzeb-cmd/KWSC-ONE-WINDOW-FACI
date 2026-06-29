@@ -36,7 +36,7 @@ export function useAppConfig(): AppConfigState {
   const [error, setError]                   = useState<string | null>(null);
 
   const fetchConfig = useCallback(async (bustCache = false) => {
-    if (bustCache) cachedConfig = null;
+    if (bustCache) { cachedConfig = null; cachePromise = null; }
 
     if (cachedConfig) {
       setMainCategories(cachedConfig.mainCategories);

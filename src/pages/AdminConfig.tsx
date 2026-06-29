@@ -343,29 +343,30 @@ export default function AdminConfig() {
 
   const handleSaveTimer = async () => {
     try {
+      // Always delete first to avoid duplicate rows from failed upsert
+      await supabase
+        .from('app_config' as any)
+        .delete()
+        .eq('config_type', 'system_setting')
+        .eq('config_key', 'maintenance_end_time');
+
       if (!localMaintenanceEndTime) {
-        // Delete timer if cleared
-        const { error } = await supabase
-          .from('app_config' as any)
-          .delete()
-          .eq('config_type', 'system_setting')
-          .eq('config_key', 'maintenance_end_time');
-        if (error) throw error;
         toast.success('Timer cleared');
       } else {
-        const isoDate = localMaintenanceEndTime; // ✅ already a proper UTC ISO string, no re-conversion needed
         const { error } = await supabase
           .from('app_config' as any)
-          .upsert({
+          .insert({
             config_type: 'system_setting',
             config_key: 'maintenance_end_time',
-            config_label: isoDate,
+            config_label: localMaintenanceEndTime, // full UTC ISO string with Z
             is_active: true,
             sort_order: 0
-          }, { onConflict: 'config_type, config_key, parent_key' });
+          });
         if (error) throw error;
-        toast.success('Timer set successfully');
+        toast.success('Timer saved!');
       }
+      // Force cache clear and refetch
+      (window as any).__appConfigCache = null;
       refetch();
     } catch (err: any) {
       toast.error(err.message || 'Failed to set timer');
@@ -543,6 +544,21 @@ export default function AdminConfig() {
               >
                 Save
               </Button>
+            </div>
+          </div>
+        )}
+        {/* Saved timer info banner */}
+        {isMaintenanceMode && maintenanceEndTime && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-500/10 border border-orange-500/20">
+            <span className="text-lg">⏰</span>
+            <div>
+              <p className="text-xs text-orange-300/70 leading-none mb-0.5">Maintenance ends at</p>
+              <p className="text-sm font-bold text-orange-200">
+                {new Date(maintenanceEndTime).toLocaleString([], {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                })}
+              </p>
             </div>
           </div>
         )}
