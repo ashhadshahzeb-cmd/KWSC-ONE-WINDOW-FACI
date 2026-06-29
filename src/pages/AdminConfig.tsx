@@ -308,6 +308,15 @@ export default function AdminConfig() {
   const handleToggleMaintenance = async (checked: boolean) => {
     try {
       if (checked) {
+        // Clear any duplicate modes or stale timers first
+        await supabase
+          .from('app_config' as any)
+          .delete()
+          .eq('config_type', 'system_setting')
+          .in('config_key', ['maintenance_mode', 'maintenance_end_time']);
+
+        setLocalMaintenanceEndTime(''); // Clear local timer state
+
         const { error } = await supabase
           .from('app_config' as any)
           .insert({
