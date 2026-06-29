@@ -9,6 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Settings2,
@@ -90,16 +93,37 @@ export default function AdminConfig() {
 
   // Local state for timer
   const [localMaintenanceEndTime, setLocalMaintenanceEndTime] = useState<string>('');
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedHour, setSelectedHour] = useState('12');
+  const [selectedMinute, setSelectedMinute] = useState('00');
 
+  // Sync from hook value on load
   useEffect(() => {
     if (maintenanceEndTime) {
-      // datetime-local input expects YYYY-MM-DDThh:mm
-      const formatted = new Date(maintenanceEndTime).toISOString().slice(0, 16);
+      const d = new Date(maintenanceEndTime);
+      setSelectedDate(d);
+      setSelectedHour(String(d.getHours()).padStart(2, '0'));
+      setSelectedMinute(String(d.getMinutes()).padStart(2, '0'));
+      const formatted = d.toISOString().slice(0, 16);
       setLocalMaintenanceEndTime(formatted);
     } else {
+      setSelectedDate(undefined);
+      setSelectedHour('12');
+      setSelectedMinute('00');
       setLocalMaintenanceEndTime('');
     }
   }, [maintenanceEndTime]);
+
+  // Helper: combine selected date + hour + minute into ISO string
+  const buildIsoFromParts = (date: Date | undefined, hour: string, minute: string) => {
+    if (!date) return '';
+    const d = new Date(date);
+    d.setHours(parseInt(hour, 10));
+    d.setMinutes(parseInt(minute, 10));
+    d.setSeconds(0);
+    return d.toISOString().slice(0, 16);
+  };
 
   // ── Auth gate ──────────────────────────────────────────────────────────────
   const handleAuthSubmit = (e: React.FormEvent) => {
@@ -409,12 +433,70 @@ export default function AdminConfig() {
               <p className="text-xs text-orange-300/60">Set a time for maintenance to automatically end.</p>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Input
-                type="datetime-local"
-                value={localMaintenanceEndTime}
-                onChange={e => setLocalMaintenanceEndTime(e.target.value)}
-                className="bg-white/5 border-orange-500/30 text-white w-full sm:w-[200px]"
-              />
+              {/* Custom Date-Time Picker */}
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="bg-white/5 border-orange-500/30 text-white w-full sm:w-[210px] justify-start gap-2 font-normal"
+                  >
+                    <CalendarIcon className="w-4 h-4 text-orange-400 shrink-0" />
+                    {selectedDate
+                      ? `${selectedDate.toLocaleDateString()} ${selectedHour}:${selectedMinute}`
+                      : <span className="text-gray-400">Pick date & time...</span>
+                    }
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-gray-900 border-orange-500/30" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      setSelectedDate(date);
+                      setLocalMaintenanceEndTime(buildIsoFromParts(date, selectedHour, selectedMinute));
+                    }}
+                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                    initialFocus
+                    className="text-white"
+                  />
+                  {/* Time selector */}
+                  <div className="flex items-center gap-2 px-4 pb-4 pt-2 border-t border-orange-500/20">
+                    <span className="text-xs text-orange-300 mr-1">Time:</span>
+                    <Input
+                      type="number"
+                      min={0} max={23}
+                      value={selectedHour}
+                      onChange={e => {
+                        const v = e.target.value.padStart(2, '0');
+                        setSelectedHour(v);
+                        setLocalMaintenanceEndTime(buildIsoFromParts(selectedDate, v, selectedMinute));
+                      }}
+                      className="w-14 text-center bg-white/5 border-orange-500/30 text-white"
+                      placeholder="HH"
+                    />
+                    <span className="text-orange-400 font-bold">:</span>
+                    <Input
+                      type="number"
+                      min={0} max={59}
+                      value={selectedMinute}
+                      onChange={e => {
+                        const v = e.target.value.padStart(2, '0');
+                        setSelectedMinute(v);
+                        setLocalMaintenanceEndTime(buildIsoFromParts(selectedDate, selectedHour, v));
+                      }}
+                      className="w-14 text-center bg-white/5 border-orange-500/30 text-white"
+                      placeholder="MM"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => setCalendarOpen(false)}
+                      className="ml-auto bg-orange-600 hover:bg-orange-500 text-white"
+                    >
+                      Done
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
               <Button
                 size="sm"
                 onClick={handleSaveTimer}
