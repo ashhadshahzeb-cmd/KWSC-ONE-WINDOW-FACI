@@ -45,6 +45,9 @@ import CollectionEntry from "./pages/CollectionEntry";
 import AdminConfig from "./pages/AdminConfig";
 import ActivityLog from "./pages/ActivityLog";
 import FileAnalytics from "./pages/FileAnalytics";
+import Maintenance from "./pages/Maintenance";
+
+const isMaintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === 'true';
 
 const queryClient = new QueryClient();
 
@@ -64,8 +67,13 @@ const DashboardRedirect = () => {
   return <Dashboard />;
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+const App = () => {
+  if (isMaintenanceMode) {
+    return <Maintenance />;
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <ThemeProvider>
         <Toaster />
@@ -144,7 +152,8 @@ const App = () => (
         </AuthProvider>
       </ThemeProvider>
     </TooltipProvider>
-  </QueryClientProvider>
-);
+    </QueryClientProvider>
+  );
+};
 
 export default App;
