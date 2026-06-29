@@ -117,6 +117,22 @@ export function useAppConfig(): AppConfigState {
 
   useEffect(() => {
     fetchConfig();
+
+    const channel = supabase
+      .channel('app_config_sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'app_config' },
+        () => {
+          // Whenever ANY tab makes a change to app_config, this will fire and sync the cache
+          fetchConfig(true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchConfig]);
 
   const refetch = useCallback(() => {
