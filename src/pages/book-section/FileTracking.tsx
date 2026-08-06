@@ -3291,7 +3291,6 @@ export default function FileTracking() {
                 />
               </div>
 
-              {isAdmin && (
                 <>
                   <div className="space-y-2">
                     <Label className="text-xs uppercase font-bold text-amber-500 flex items-center gap-2">
@@ -3321,7 +3320,6 @@ export default function FileTracking() {
                     />
                   </div>
                 </>
-              )}
 
               <div className="space-y-2 lg:col-span-3">
                 <Label className="text-xs uppercase font-bold text-muted-foreground">Remarks</Label>
@@ -3946,28 +3944,26 @@ export default function FileTracking() {
                       </div>
 
                       <div className="pt-2 flex flex-col gap-2 justify-center">
-                        {isAdmin && (
-                          <div className="no-print space-y-2 mb-2 bg-slate-500/5 p-3 rounded-lg border border-slate-500/20">
-                            <div>
-                              <label className="text-[10px] uppercase font-bold text-amber-600">Override Created Date</label>
-                              <input
-                                type="date"
-                                value={qrFullScreen?.created_date || ''}
-                                onChange={e => setQrFullScreen({ ...qrFullScreen!, created_date: e.target.value })}
-                                className="w-full h-8 text-xs bg-white border border-amber-500/30 text-amber-600 font-bold rounded-md px-2 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[10px] uppercase font-bold text-emerald-600">Override Print Date</label>
-                              <input
-                                type="date"
-                                value={qrFullScreen?.print_date || ''}
-                              onChange={e => setQrFullScreen({ ...qrFullScreen!, print_date: e.target.value })}
-                              className="w-full h-8 text-xs bg-white border border-emerald-500/30 text-emerald-600 font-bold rounded-md px-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        <div className="no-print space-y-2 mb-2 bg-slate-500/5 p-3 rounded-lg border border-slate-500/20">
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-amber-600">Override Created Date</label>
+                            <input
+                              type="date"
+                              value={qrFullScreen?.created_date || ''}
+                              onChange={e => setQrFullScreen({ ...qrFullScreen!, created_date: e.target.value })}
+                              className="w-full h-8 text-xs bg-white border border-amber-500/30 text-amber-600 font-bold rounded-md px-2 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
                             />
-                            </div>
                           </div>
-                        )}
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-emerald-600">Override Print Date</label>
+                            <input
+                              type="date"
+                              value={qrFullScreen?.print_date || ''}
+                            onChange={e => setQrFullScreen({ ...qrFullScreen!, print_date: e.target.value })}
+                            className="w-full h-8 text-xs bg-white border border-emerald-500/30 text-emerald-600 font-bold rounded-md px-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                          />
+                          </div>
+                        </div>
                         <Button
                           className={`w-full bg-primary hover:bg-primary/90 text-white font-bold rounded-xl no-print`}
                           onClick={handlePrintQR}
