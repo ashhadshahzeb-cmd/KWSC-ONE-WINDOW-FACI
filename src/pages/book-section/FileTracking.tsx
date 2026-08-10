@@ -185,7 +185,7 @@ export default function FileTracking() {
   });
 
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [reportDateFilter, setReportDateFilter] = useState("all");
+  const [reportDateFilter, setReportDateFilter] = useState("today");
   const [customFilterStartDate, setCustomFilterStartDate] = useState("");
   const [customFilterEndDate, setCustomFilterEndDate] = useState("");
   const [isInitialLoading, setIsInitialLoading] = useState(true);
